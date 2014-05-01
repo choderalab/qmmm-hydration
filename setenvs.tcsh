@@ -1,3 +1,5 @@
+#!/bin/tcsh
+
 # Set up environment variables
 source ../openeye/openeye.csh
 source ../amber/amber.csh
