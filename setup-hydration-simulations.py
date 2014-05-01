@@ -39,7 +39,34 @@ from openeye.oeszybki import *
 
 clearance = 9.0 # clearance around solute for box construction, in Angstroms
 
-sander_minimization_mdin = """\
+sander_min_solvent_mdin = """\
+initial minimization prior to MD
+ &cntrl
+  imin   = 1,
+  maxcyc = 500,
+  ncyc   = 250,
+  ntb    = 2,
+  igb    = 0,
+  cut    = 9.,
+ &end
+"""
+
+sander_md_solvent_mdin = """\
+Langevin dynamics in periodic box.
+ &cntrl
+   imin=0, irest=0, ntx=1,
+   ntc=2, ntf=2, 
+   nstlim=500, 
+   ntpr=500, ntwx=500,
+   ntwr=5000, 
+   dt=0.002, cut=9.,
+   ntt=3, gamma_ln=5.0, tempi=300.0, temp0=300.0,
+   ntb=2, ntp=1, pres0=1.01317122594, taup=10.0,
+   ioutfm=1,
+ &end
+"""
+
+sander_min_vacuum_mdin = """\
 initial minimization prior to MD
  &cntrl
   imin   = 1,
@@ -47,19 +74,79 @@ initial minimization prior to MD
   ncyc   = 250,
   ntb    = 0,
   igb    = 0,
-  cut    = 9
- /
+  cut    = 900.,
+ &end
 """
 
-sander_dynamics_mdin = """\
-initial minimization prior to MD
+sander_md_vacuum_mdin = """\
+Langevin dynamics in periodic box.
  &cntrl
-  imin   = 0,
-  maxcyc = 5000,
-  ntb    = 0,
-  igb    = 0,
-  cut    = 9
- /
+   imin=0, irest=0, ntx=1,
+   ntc=2, ntf=2, 
+   nstlim=500, 
+   ntpr=500, ntwx=500,
+   ntwr=5000, 
+   dt=0.002, cut=999.,
+   ntt=3, gamma_ln=5.0, tempi=300.0, temp0=300.0,
+   ntb=0,
+   ioutfm=1,
+ &end
+"""
+
+torque_script = """\
+#!/bin/tcsh
+#  Batch script for mpirun job on cbio cluster.
+#
+#
+# walltime : maximum wall clock time (hh:mm:ss)
+#PBS -l walltime=08:00:00
+#
+# join stdout and stderr
+#PBS -j oe
+#
+# spool output immediately
+#PBS -k oe
+#
+# specify queue
+#PBS -q gpu
+#
+# nodes: number of nodes
+#   ppn: how many cores per node to use (must use one per GPU)
+#   gpus: number of GPUs per node
+#   shared keyword to allow GPUs to be switched to shared mode
+#PBS -l nodes=1:ppn=2:gpus=2:shared
+#
+# export all my environment variables to the job
+##PBS -V
+#
+# job name (default = name of script file)
+#PBS -N ambertest
+#
+# specify email
+#PBS -M jchodera@gmail.com
+#
+# mail settings
+#PBS -m n
+#
+# filename for standard output (default = <job_name>.o<job_id>)
+# at end of job, it is in directory from which qsub was executed
+# remove extra ## from the line below if you want to name your own file
+# DOES NOT WORK WITH PBS -k oe FOR IMMEDIATE OUTPUT
+#PBS -o /cbio/jclab/home/chodera/vvvr/openmm/timescale-correction/vvvr.out
+
+cd /cbio/jclab/projects/collab/cisborn
+source amber/amber.csh
+
+cd ${PBS_O_WORKDIR}/molecules/benzene/solvent
+
+
+date
+
+setenv name system
+#mpirun -np 1 $TCBin -UseMPI > mpi1.tc_job.dat & 
+mpirun -np 1 sander.MPI -O -i $name.in -o $name.out -p $name.prmtop -c $name.inpcrd -x $name.mdcrd -r $name.rst -inf $name.info
+
+date
 """
 
 #=============================================================================================
@@ -679,6 +766,11 @@ saveamberparm system %(system_prmtop_filename)s %(system_crd_filename)s
     print output
     os.chdir(current_path)
 
+    # write sander input files
+    write_file(os.path.join(solvent_path, 'min.sander.in'), sander_min_solvent_mdin)
+    write_file(os.path.join(solvent_path, 'md.sander.in'), sander_md_solvent_mdin)
+    write_file(os.path.join(solvent_path, 'submit-torque.csh'), torque_script)
+
     # SET UP VACUUM SIMULATION
 
     # construct pathname for vacuum simulations
@@ -738,6 +830,11 @@ saveamberparm system %(system_prmtop_filename)s %(system_crd_filename)s
     output = commands.getoutput(command)
     print output
     os.chdir(current_path)
+
+    # write sander input files
+    write_file(os.path.join(vacuum_path, 'min.sander.in'), sander_min_vacuum_mdin)
+    write_file(os.path.join(vacuum_path, 'md.sander.in'), sander_md_vacuum_mdin)
+    write_file(os.path.join(vacuum_path, 'submit-torque.csh'), torque_script)
 
     return
 
