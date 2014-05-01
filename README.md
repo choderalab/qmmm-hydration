@@ -14,6 +14,12 @@ ligandtools.py - module used by setup-hydration-simulations.py
 ## To run
 
 ```
-source setenvs.csh # for tcsh/csh
-rm -rf molecules ; python setup-hydration-simulations.py
+# Set environment variables
+source ../openeye/openeye.csh
+source ../amber/amber.csh
+source ../anaconda/anaconda.csh
+# Clean up molecules directory
+rm -rf molecules
+# Set up simulations
+python setup-hydration-simulations.py
 ```
