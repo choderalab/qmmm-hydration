@@ -8,7 +8,10 @@
 # * Parameterize the molecule with GAFF [AmberTools Antechamber]
 # * Set up the solvated system [AmberTools LEaP]
 # 
-# Written by John D. Chodera <jchodera@gmail.com> 2008-01-23
+# Written by John D. Chodera <jchodera@gmail.com>
+#
+# TODO:
+# - Write out sander mdin files for minimization and dynamics.
 #=============================================================================================
 
 #=============================================================================================
@@ -31,24 +34,33 @@ from openeye.oeiupac import *
 from openeye.oeszybki import *
 
 #=============================================================================================
-# CHANGELOG
-#============================================================================================
-# 2008-04-19 JDC
-# * Both vacuum and solvated simulations now have counterions added for charged solutes.
-#=============================================================================================
-
-#=============================================================================================
-# KNOWN BUGS
-#============================================================================================
-# * A vacuum simulation should not be set up for decoupling simulations.
-# * Multiple solute conformations should be used to see different replicates and the solute should start in the decoupled state.
-#=============================================================================================
-
-#=============================================================================================
 # PARAMETERS
 #=============================================================================================
 
 clearance = 9.0 # clearance around solute for box construction, in Angstroms
+
+sander_minimization_mdin = """\
+initial minimization prior to MD
+ &cntrl
+  imin   = 1,
+  maxcyc = 500,
+  ncyc   = 250,
+  ntb    = 0,
+  igb    = 0,
+  cut    = 9
+ /
+"""
+
+sander_dynamics_mdin = """\
+initial minimization prior to MD
+ &cntrl
+  imin   = 0,
+  maxcyc = 5000,
+  ntb    = 0,
+  igb    = 0,
+  cut    = 9
+ /
+"""
 
 #=============================================================================================
 # SUBROUTINES
@@ -567,7 +579,7 @@ def setupHydrationCalculation(solute, verbose=True):
 
     # Run LEaP to generate topology / coordinates.
     solute_prmtop_filename = os.path.join(work_path,'solute.prmtop')
-    solute_crd_filename = os.path.join(work_path,'solute.crd')
+    solute_crd_filename = os.path.join(work_path,'solute.inpcrd')
     solute_off_filename = os.path.join(work_path, 'solute.off')
     
     tleap_input_filename = os.path.join(work_path, 'setup-solute.leap.in')
@@ -618,7 +630,7 @@ quit
     # solvate the solute
     print "Solvating the solute with tleap..."
     system_prmtop_filename = os.path.join(solvent_path,'system.prmtop')
-    system_crd_filename = os.path.join(solvent_path,'system.crd')
+    system_crd_filename = os.path.join(solvent_path,'system.inpcrd')
     tleap_input_filename = os.path.join(solvent_path, 'setup-system.leap.in')
     tleap_output_filename = os.path.join(solvent_path, 'setup-system.leap.out')
     clearance = globals()['clearance'] # clearance around solute (in A)
@@ -662,7 +674,7 @@ saveamberparm system %(system_prmtop_filename)s %(system_crd_filename)s
     # make a PDB file for checking
     print "Converting system to PDB..."
     os.chdir(solvent_path)
-    command = 'cat system.crd | ambpdb -p system.prmtop > system.pdb' % vars()
+    command = 'cat system.inpcrd | ambpdb -p system.prmtop > system.pdb' % vars()
     output = commands.getoutput(command)
     print output
     os.chdir(current_path)
@@ -677,7 +689,7 @@ saveamberparm system %(system_prmtop_filename)s %(system_crd_filename)s
     # solvate the solute
     print "Preparing vacuum solute with tleap..."
     system_prmtop_filename = os.path.join(vacuum_path,'system.prmtop')
-    system_crd_filename = os.path.join(vacuum_path,'system.crd')
+    system_crd_filename = os.path.join(vacuum_path,'system.inpcrd')
     tleap_input_filename = os.path.join(vacuum_path, 'setup-system.leap.in')
     tleap_output_filename = os.path.join(vacuum_path, 'setup-system.leap.out')
     clearance = 50.0 # clearance in A
@@ -722,7 +734,7 @@ saveamberparm system %(system_prmtop_filename)s %(system_crd_filename)s
     # make a PDB file for checking
     print "Converting system to PDB..."
     os.chdir(vacuum_path)
-    command = 'cat system.crd | ambpdb -p system.prmtop > system.pdb' % vars()
+    command = 'cat system.inpcrd | ambpdb -p system.prmtop > system.pdb' % vars()
     output = commands.getoutput(command)
     print output
     os.chdir(current_path)
