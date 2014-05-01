@@ -45,7 +45,7 @@ initial minimization prior to MD
   imin   = 1,
   maxcyc = 500,
   ncyc   = 250,
-  ntb    = 2,
+  ntb    = 1, ntp = 0,
   igb    = 0,
   cut    = 9.,
  &end
@@ -83,9 +83,9 @@ Langevin dynamics in periodic box.
  &cntrl
    imin=0, irest=0, ntx=1,
    ntc=2, ntf=2, 
-   nstlim=500, 
+   nstlim=5000, 
    ntpr=500, ntwx=500,
-   ntwr=5000, 
+   ntwr=500, 
    dt=0.002, cut=999.,
    ntt=3, gamma_ln=5.0, tempi=300.0, temp0=300.0,
    ntb=0,
@@ -142,9 +142,12 @@ cd ${PBS_O_WORKDIR}/molecules/benzene/solvent
 
 date
 
-setenv name system
+# Minimize
+mpirun -np 1 sander -O -i min.sander.in -o min.sander.out -p system.prmtop -c system.inpcrd -x min.nc -r min.rst -inf min.info
+
+# Simulate
 #mpirun -np 1 $TCBin -UseMPI > mpi1.tc_job.dat & 
-mpirun -np 1 sander.MPI -O -i $name.in -o $name.out -p $name.prmtop -c $name.inpcrd -x $name.mdcrd -r $name.rst -inf $name.info
+mpirun -np 1 sander -O -i md.sander.in -o md.sander.out -p system.prmtop -c min.rst -x md.nc -r md.rst -inf md.info
 
 date
 """
